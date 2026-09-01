@@ -19,6 +19,8 @@
     --mr: #1F6F72;
     --mr-bg: #E3EEEC;
     --tue-thu: #EEF3F1;
+    --today: #3F7D4F;
+    --today-bg: #E9F1E7;
     --shadow: rgba(35, 41, 46, 0.08);
   }
 
@@ -120,6 +122,125 @@
     border-color: #B4432E;
   }
 
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .tool-btn {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .tool-btn:hover { color: var(--mr); border-color: var(--mr); }
+
+  .summary-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: baseline;
+    padding: 14px 18px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 22px;
+  }
+
+  .summary-item {
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .summary-item strong {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-right: 5px;
+  }
+
+  .summary-item.overdue strong { color: #B4432E; }
+
+  .cell.overdue:not(.empty) { box-shadow: inset 3px 0 0 #B4432E; }
+
+  .tag.overdue { background: #F8E4DE; color: #B4432E; cursor: default; }
+
+  .note-line {
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-style: italic;
+    margin-top: 6px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .note-btn {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 5px 9px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-soft);
+  }
+
+  .note-btn:hover { color: var(--ink); border-color: var(--ink-soft); }
+
+  .note-editor {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .note-editor textarea {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    resize: none;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  .note-editor .note-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .note-editor .note-actions button {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: transparent;
+  }
+
+  .note-editor .note-actions .save-note { color: var(--mr); border-color: var(--mr); }
+  .note-editor .note-actions .cancel-note { color: var(--ink-soft); }
+
   .legend {
     display: flex;
     flex-wrap: wrap;
@@ -135,6 +256,7 @@
   .dot.ar { background: var(--ar); }
   .dot.mr { background: var(--mr); }
   .dot.tt { background: var(--tue-thu); border: 1px solid var(--line); }
+  .dot.today { background: var(--today); }
 
   .weekdays {
     display: grid;
@@ -172,7 +294,12 @@
 
   .cell.tue-thu:not(.empty) { background: var(--tue-thu); }
 
-  .cell.today:not(.empty) { box-shadow: inset 0 0 0 2px var(--ink); }
+  .cell.today:not(.empty) {
+    background: var(--today-bg);
+    box-shadow: inset 0 0 0 2px var(--today);
+  }
+
+  .cell.today .date-num { color: var(--today); }
 
   .date-num {
     font-family: 'Fraunces', serif;
@@ -213,6 +340,7 @@
 
   .actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     margin-top: 8px;
     opacity: 0;
@@ -275,7 +403,17 @@
     <span><span class="dot ar"></span>AR — Auto Renewal mail sent</span>
     <span><span class="dot mr"></span>MR — Manual Renewal mail sent</span>
     <span><span class="dot tt"></span>Tue / Thu — scheduled MR day</span>
+    <span><span class="dot today"></span>Today</span>
   </div>
+
+  <div class="toolbar">
+    <button class="tool-btn" id="export-csv-btn" type="button">Export month as CSV</button>
+    <button class="tool-btn" id="backup-btn" type="button">Backup all data</button>
+    <button class="tool-btn" id="restore-btn" type="button">Restore from backup</button>
+    <input type="file" id="restore-input" accept="application/json" style="display:none;">
+  </div>
+
+  <div class="summary-bar" id="summary-bar"></div>
 
   <div class="weekdays">
     <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
@@ -351,6 +489,7 @@ async function renderCalendar() {
   const firstDay = (new Date(currentYear, currentMonth, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === currentMonth;
 
   for (let i = 0; i < firstDay; i++) {
@@ -359,26 +498,49 @@ async function renderCalendar() {
     grid.appendChild(cell);
   }
 
+  let arCount = 0, mrCount = 0, mrScheduled = 0, overdueCount = 0;
+
   for (let day = 1; day <= daysInMonth; day++) {
-    const dow = new Date(currentYear, currentMonth, day).getDay();
+    const cellDate = new Date(currentYear, currentMonth, day);
+    const dow = cellDate.getDay();
     const isTueThu = dow === 2 || dow === 4;
+    const isPast = cellDate < today;
     const cell = document.createElement('div');
-    cell.className = 'cell' + (isTueThu ? ' tue-thu' : '') + (isCurrentMonth && day === today.getDate() ? ' today' : '');
+
+    const dayState = monthData[day] || {};
+    if (dayState.ar) arCount++;
+    if (isTueThu) mrScheduled++;
+    if (dayState.mr) mrCount++;
+    const overdueAR = isPast && !dayState.ar;
+    const overdueMR = isPast && isTueThu && !dayState.mr;
+    if (overdueAR || overdueMR) overdueCount++;
+
+    cell.className = 'cell'
+      + (isTueThu ? ' tue-thu' : '')
+      + (isCurrentMonth && day === today.getDate() ? ' today' : '')
+      + ((overdueAR || overdueMR) ? ' overdue' : '');
 
     const num = document.createElement('div');
     num.className = 'date-num';
     num.textContent = day;
     cell.appendChild(num);
 
-    const dayState = monthData[day] || {};
-
     const tagsWrap = document.createElement('div');
     tagsWrap.className = 'tags';
     cell.appendChild(tagsWrap);
 
+    const noteLine = document.createElement('div');
+    noteLine.className = 'note-line';
+    noteLine.style.display = 'none';
+    cell.appendChild(noteLine);
+
     const actionsWrap = document.createElement('div');
     actionsWrap.className = 'actions';
     cell.appendChild(actionsWrap);
+
+    const noteEditorWrap = document.createElement('div');
+    noteEditorWrap.style.display = 'none';
+    cell.appendChild(noteEditorWrap);
 
     function refreshDay() {
       tagsWrap.innerHTML = '';
@@ -390,6 +552,12 @@ async function renderCalendar() {
           persistAndRefresh(`Removed AR mark for ${MONTH_NAMES[currentMonth]} ${day}`);
         }));
       } else {
+        if (overdueAR) {
+          const flag = document.createElement('span');
+          flag.className = 'tag overdue';
+          flag.textContent = '⚠ AR overdue';
+          tagsWrap.appendChild(flag);
+        }
         actionsWrap.appendChild(makeButton('ar', 'AR', () => {
           dayState.ar = true;
           persistAndRefresh(`Auto Renewal mail marked sent — ${MONTH_NAMES[currentMonth]} ${day}`);
@@ -402,11 +570,79 @@ async function renderCalendar() {
           persistAndRefresh(`Removed MR mark for ${MONTH_NAMES[currentMonth]} ${day}`);
         }));
       } else {
+        if (overdueMR) {
+          const flag = document.createElement('span');
+          flag.className = 'tag overdue';
+          flag.textContent = '⚠ MR overdue';
+          tagsWrap.appendChild(flag);
+        }
         actionsWrap.appendChild(makeButton('mr', 'MR', () => {
           dayState.mr = true;
           persistAndRefresh(`Manual Renewal mail marked sent — ${MONTH_NAMES[currentMonth]} ${day}`);
         }));
       }
+
+      if (dayState.note) {
+        noteLine.textContent = dayState.note;
+        noteLine.style.display = 'block';
+      } else {
+        noteLine.style.display = 'none';
+      }
+
+      const noteBtn = document.createElement('button');
+      noteBtn.className = 'note-btn';
+      noteBtn.type = 'button';
+      noteBtn.textContent = dayState.note ? 'Edit note' : '+ Note';
+      noteBtn.addEventListener('click', () => openNoteEditor());
+      actionsWrap.appendChild(noteBtn);
+    }
+
+    function openNoteEditor() {
+      noteEditorWrap.innerHTML = '';
+      noteEditorWrap.className = 'note-editor';
+      noteEditorWrap.style.display = 'flex';
+      tagsWrap.style.display = 'none';
+      noteLine.style.display = 'none';
+      actionsWrap.style.display = 'none';
+
+      const textarea = document.createElement('textarea');
+      textarea.rows = 2;
+      textarea.value = dayState.note || '';
+      textarea.placeholder = 'e.g. batch of 240 sent, delayed due to ISP issue…';
+      noteEditorWrap.appendChild(textarea);
+      textarea.focus();
+
+      const actionsRow = document.createElement('div');
+      actionsRow.className = 'note-actions';
+
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'save-note';
+      saveBtn.type = 'button';
+      saveBtn.textContent = 'Save';
+      saveBtn.addEventListener('click', () => {
+        const val = textarea.value.trim();
+        if (val) dayState.note = val; else delete dayState.note;
+        closeNoteEditor();
+        persistAndRefresh(val ? `Note saved for ${MONTH_NAMES[currentMonth]} ${day}` : `Note removed for ${MONTH_NAMES[currentMonth]} ${day}`);
+      });
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'cancel-note';
+      cancelBtn.type = 'button';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.addEventListener('click', () => closeNoteEditor());
+
+      actionsRow.appendChild(saveBtn);
+      actionsRow.appendChild(cancelBtn);
+      noteEditorWrap.appendChild(actionsRow);
+    }
+
+    function closeNoteEditor() {
+      noteEditorWrap.style.display = 'none';
+      noteEditorWrap.innerHTML = '';
+      tagsWrap.style.display = 'flex';
+      actionsWrap.style.display = 'flex';
+      if (dayState.note) noteLine.style.display = 'block';
     }
 
     async function persistAndRefresh(message) {
@@ -420,11 +656,33 @@ async function renderCalendar() {
       statusLine.textContent = ok ? message : 'Could not save — please try again.';
     }
 
+    noteLine.addEventListener('click', () => openNoteEditor());
+
     refreshDay();
     grid.appendChild(cell);
   }
 
+  renderSummary({ arCount, mrCount, mrScheduled, overdueCount, daysInMonth });
+
   statusLine.textContent = '';
+}
+
+function renderSummary({ arCount, mrCount, mrScheduled, overdueCount, daysInMonth }) {
+  const bar = document.getElementById('summary-bar');
+  bar.innerHTML = '';
+
+  const items = [
+    { label: 'AR sent', value: `${arCount}/${daysInMonth}` },
+    { label: 'MR sent', value: `${mrCount}/${mrScheduled}` },
+    { label: 'Overdue', value: `${overdueCount}`, overdue: overdueCount > 0 }
+  ];
+
+  items.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'summary-item' + (item.overdue ? ' overdue' : '');
+    el.innerHTML = `<strong>${item.value}</strong>${item.label}`;
+    bar.appendChild(el);
+  });
 }
 
 function makeTag(kind, label, onRemove) {
@@ -442,6 +700,104 @@ function makeButton(kind, label, onClick) {
   btn.addEventListener('click', onClick);
   return btn;
 }
+
+function downloadFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(value) {
+  const str = String(value ?? '');
+  if (/[",\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+document.getElementById('export-csv-btn').addEventListener('click', () => {
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const rows = [['Date', 'Day', 'AR Sent', 'MR Sent', 'Note']];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dow = new Date(currentYear, currentMonth, day).getDay();
+    const dayState = monthData[day] || {};
+    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    rows.push([
+      dateStr,
+      DAY_NAMES[dow],
+      dayState.ar ? 'Yes' : 'No',
+      dayState.mr ? 'Yes' : 'No',
+      dayState.note || ''
+    ]);
+  }
+
+  const csv = rows.map(row => row.map(csvEscape).join(',')).join('\n');
+  const filename = `renewal-tracker_${currentYear}-${String(currentMonth + 1).padStart(2, '0')}.csv`;
+  downloadFile(filename, csv, 'text/csv');
+  statusLine.textContent = `Exported ${MONTH_NAMES[currentMonth]} ${currentYear} as CSV.`;
+});
+
+document.getElementById('backup-btn').addEventListener('click', () => {
+  const backup = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('renewals:')) {
+      backup[key] = localStorage.getItem(key);
+    }
+  }
+  const filename = `renewal-tracker-backup_${new Date().toISOString().slice(0, 10)}.json`;
+  downloadFile(filename, JSON.stringify(backup, null, 2), 'application/json');
+  statusLine.textContent = 'Backup downloaded.';
+});
+
+const restoreBtn = document.getElementById('restore-btn');
+const restoreInput = document.getElementById('restore-input');
+
+restoreBtn.addEventListener('click', () => restoreInput.click());
+
+restoreInput.addEventListener('change', async () => {
+  const file = restoreInput.files[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const keys = Object.keys(data).filter(k => k.startsWith('renewals:'));
+
+    if (keys.length === 0) {
+      statusLine.textContent = 'That file has no renewal tracker data to restore.';
+      return;
+    }
+
+    const confirmed = window.confirm(`Restore ${keys.length} month(s) of data from this backup? Matching months already saved will be overwritten.`);
+    if (!confirmed) { restoreInput.value = ''; return; }
+
+    keys.forEach(key => {
+      try {
+        JSON.parse(data[key]);
+        localStorage.setItem(key, data[key]);
+      } catch (e) {
+        // Skip malformed entries.
+      }
+    });
+
+    await renderCalendar();
+    statusLine.textContent = `Restored ${keys.length} month(s) from backup.`;
+  } catch (err) {
+    statusLine.textContent = 'Could not read that backup file.';
+  } finally {
+    restoreInput.value = '';
+  }
+});
 
 const clearMonthBtn = document.getElementById('clear-month-btn');
 
