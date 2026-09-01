@@ -498,8 +498,6 @@ async function renderCalendar() {
     grid.appendChild(cell);
   }
 
-  let arCount = 0, mrCount = 0, mrScheduled = 0, overdueCount = 0;
-
   for (let day = 1; day <= daysInMonth; day++) {
     const cellDate = new Date(currentYear, currentMonth, day);
     const dow = cellDate.getDay();
@@ -508,17 +506,10 @@ async function renderCalendar() {
     const cell = document.createElement('div');
 
     const dayState = monthData[day] || {};
-    if (dayState.ar) arCount++;
-    if (isTueThu) mrScheduled++;
-    if (dayState.mr) mrCount++;
-    const overdueAR = isPast && !dayState.ar;
-    const overdueMR = isPast && isTueThu && !dayState.mr;
-    if (overdueAR || overdueMR) overdueCount++;
 
     cell.className = 'cell'
       + (isTueThu ? ' tue-thu' : '')
-      + (isCurrentMonth && day === today.getDate() ? ' today' : '')
-      + ((overdueAR || overdueMR) ? ' overdue' : '');
+      + (isCurrentMonth && day === today.getDate() ? ' today' : '');
 
     const num = document.createElement('div');
     num.className = 'date-num';
@@ -545,6 +536,10 @@ async function renderCalendar() {
     function refreshDay() {
       tagsWrap.innerHTML = '';
       actionsWrap.innerHTML = '';
+
+      const overdueAR = isPast && !dayState.ar;
+      const overdueMR = isPast && isTueThu && !dayState.mr;
+      cell.classList.toggle('overdue', overdueAR || overdueMR);
 
       if (dayState.ar) {
         tagsWrap.appendChild(makeTag('ar', 'AR sent', () => {
@@ -652,6 +647,7 @@ async function renderCalendar() {
         monthData[day] = dayState;
       }
       refreshDay();
+      updateSummary();
       const ok = await saveMonthData(currentYear, currentMonth, monthData);
       statusLine.textContent = ok ? message : 'Could not save — please try again.';
     }
@@ -662,7 +658,26 @@ async function renderCalendar() {
     grid.appendChild(cell);
   }
 
-  renderSummary({ arCount, mrCount, mrScheduled, overdueCount, daysInMonth });
+  function updateSummary() {
+    let arCount = 0, mrCount = 0, mrScheduled = 0, overdueCount = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const cellDate = new Date(currentYear, currentMonth, day);
+      const dow = cellDate.getDay();
+      const isTueThu = dow === 2 || dow === 4;
+      const isPast = cellDate < today;
+      const dayState = monthData[day] || {};
+
+      if (dayState.ar) arCount++;
+      if (isTueThu) mrScheduled++;
+      if (dayState.mr) mrCount++;
+      if ((isPast && !dayState.ar) || (isPast && isTueThu && !dayState.mr)) overdueCount++;
+    }
+
+    renderSummary({ arCount, mrCount, mrScheduled, overdueCount, daysInMonth });
+  }
+
+  updateSummary();
 
   statusLine.textContent = '';
 }
