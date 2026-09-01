@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Renewal Mail Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F6F3EA;
+    --paper-raised: #FCFAF4;
+    --ink: #23292E;
+    --ink-soft: #6B6A63;
+    --line: #DDD6C2;
+    --line-soft: #E9E4D5;
+    --ar: #B8862B;
+    --ar-bg: #FBF1DC;
+    --mr: #1F6F72;
+    --mr-bg: #E3EEEC;
+    --tue-thu: #EEF3F1;
+    --shadow: rgba(35, 41, 46, 0.08);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 48px 28px 80px;
+  }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 36px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .title-block h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 40px;
+    line-height: 1.05;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .title-block p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    max-width: 46ch;
+    line-height: 1.5;
+  }
+
+  .month-picker {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-family: 'Fraunces', serif;
+  }
+
+  .month-picker select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--ink);
+    font-family: 'Fraunces', serif;
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--ink);
+    padding: 2px 22px 6px 2px;
+    cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+    background-position: right 6px top 55%, right 0px top 55%;
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+  }
+
+  .month-picker select:focus-visible {
+    outline: 2px solid var(--mr);
+    outline-offset: 3px;
+  }
+
+  #year-select { min-width: 78px; }
+  #month-select { min-width: 118px; }
+
+  .clear-btn {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    align-self: center;
+    margin-left: 4px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .clear-btn:hover {
+    color: #B4432E;
+    border-color: #B4432E;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .tool-btn {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .tool-btn:hover { color: var(--mr); border-color: var(--mr); }
+
+  .summary-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: baseline;
+    padding: 14px 18px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 22px;
+  }
+
+  .summary-item {
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .summary-item strong {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-right: 5px;
+  }
+
+  .summary-item.overdue strong { color: #B4432E; }
+
+  .cell.overdue:not(.empty) { box-shadow: inset 3px 0 0 #B4432E; }
+
+  .tag.overdue { background: #F8E4DE; color: #B4432E; cursor: default; }
+
+  .note-line {
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-style: italic;
+    margin-top: 6px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .note-btn {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 5px 9px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-soft);
+  }
+
+  .note-btn:hover { color: var(--ink); border-color: var(--ink-soft); }
+
+  .note-editor {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .note-editor textarea {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    resize: none;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  .note-editor .note-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .note-editor .note-actions button {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: transparent;
+  }
+
+  .note-editor .note-actions .save-note { color: var(--mr); border-color: var(--mr); }
+  .note-editor .note-actions .cancel-note { color: var(--ink-soft); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    margin-bottom: 22px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+
+  .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .dot.ar { background: var(--ar); }
+  .dot.mr { background: var(--mr); }
+  .dot.tt { background: var(--tue-thu); border: 1px solid var(--line); }
+
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 6px;
+  }
+
+  .weekdays div {
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    padding: 0 4px 8px;
+    font-weight: 500;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+
+  .cell {
+    background: var(--paper-raised);
+    min-height: 118px;
+    padding: 10px 10px 8px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    transition: background 0.15s ease;
+  }
+
+  .cell.empty { background: var(--paper); }
+
+  .cell.tue-thu:not(.empty) { background: var(--tue-thu); }
+
+  .cell.today:not(.empty) { box-shadow: inset 0 0 0 2px var(--ink); }
+
+  .date-num {
+    font-family: 'Fraunces', serif;
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: auto;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .tag {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 8px 4px 9px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    border: none;
+    line-height: 1.2;
+  }
+
+  .tag.ar { background: var(--ar-bg); color: var(--ar); }
+  .tag.mr { background: var(--mr-bg); color: var(--mr); }
+
+  .tag .x {
+    opacity: 0.55;
+    font-size: 10px;
+  }
+  .tag:hover .x { opacity: 1; }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+
+  .cell:hover .actions, .cell:focus-within .actions { opacity: 1; transform: translateY(0); }
+  .cell.empty .actions { display: none; }
+
+  .btn {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 5px 9px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    background: transparent;
+  }
+
+  .btn.ar { color: var(--ar); border-color: var(--ar); }
+  .btn.ar:hover { background: var(--ar); color: var(--paper-raised); }
+
+  .btn.mr { color: var(--mr); border-color: var(--mr); }
+  .btn.mr:hover { background: var(--mr); color: var(--paper-raised); }
+
+  .status-line {
+    margin-top: 18px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    min-height: 16px;
+  }
+
+  @media (max-width: 640px) {
+    .cell { min-height: 92px; padding: 8px; }
+    .actions { opacity: 1; transform: none; }
+    .date-num { font-size: 16px; }
+    .title-block h1 { font-size: 30px; }
+    .weekdays div:nth-child(n) { font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title-block">
+      <h1>Renewal Mail Tracker</h1>
+      <p>Mark each day's Auto Renewal and Manual Renewal mail as it goes out. Tuesdays and Thursdays are tinted as your Manual Renewal send days.</p>
+    </div>
+    <div class="month-picker">
+      <select id="month-select" aria-label="Month"></select>
+      <select id="year-select" aria-label="Year"></select>
+      <button class="clear-btn" id="clear-month-btn" type="button">Clear this month</button>
+    </div>
+  </header>
+
+  <div class="legend">
+    <span><span class="dot ar"></span>AR — Auto Renewal mail sent</span>
+    <span><span class="dot mr"></span>MR — Manual Renewal mail sent</span>
+    <span><span class="dot tt"></span>Tue / Thu — scheduled MR day</span>
+  </div>
+
+  <div class="toolbar">
+    <button class="tool-btn" id="export-csv-btn" type="button">Export month as CSV</button>
+    <button class="tool-btn" id="backup-btn" type="button">Backup all data</button>
+    <button class="tool-btn" id="restore-btn" type="button">Restore from backup</button>
+    <input type="file" id="restore-input" accept="application/json" style="display:none;">
+  </div>
+
+  <div class="summary-bar" id="summary-bar"></div>
+
+  <div class="weekdays">
+    <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="status-line" id="status-line"></div>
+</div>
+
+<script>
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const monthSelect = document.getElementById('month-select');
+const yearSelect = document.getElementById('year-select');
+const grid = document.getElementById('grid');
+const statusLine = document.getElementById('status-line');
+
+const now = new Date();
+let currentYear = now.getFullYear();
+let currentMonth = now.getMonth(); // 0-indexed
+
+MONTH_NAMES.forEach((name, i) => {
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.textContent = name;
+  monthSelect.appendChild(opt);
+});
+
+const YEAR_RANGE_BACK = 3;
+const YEAR_RANGE_FWD = 3;
+for (let y = now.getFullYear() - YEAR_RANGE_BACK; y <= now.getFullYear() + YEAR_RANGE_FWD; y++) {
+  const opt = document.createElement('option');
+  opt.value = y;
+  opt.textContent = y;
+  yearSelect.appendChild(opt);
+}
+
+monthSelect.value = currentMonth;
+yearSelect.value = currentYear;
+
+function monthKey(year, month) {
+  return `renewals:${year}-${String(month + 1).padStart(2, '0')}`;
+}
+
+async function loadMonthData(year, month) {
+  try {
+    const raw = localStorage.getItem(monthKey(year, month));
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    console.error('Storage error:', err);
+    return {};
+  }
+}
+
+async function saveMonthData(year, month, data) {
+  try {
+    localStorage.setItem(monthKey(year, month), JSON.stringify(data));
+    return true;
+  } catch (err) {
+    console.error('Storage error:', err);
+    return false;
+  }
+}
+
+let monthData = {};
+
+async function renderCalendar() {
+  statusLine.textContent = 'Loading…';
+  grid.innerHTML = '';
+
+  monthData = await loadMonthData(currentYear, currentMonth);
+
+  const firstDay = (new Date(currentYear, currentMonth, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === currentMonth;
+
+  for (let i = 0; i < firstDay; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell empty';
+    grid.appendChild(cell);
+  }
+
+  let arCount = 0, mrCount = 0, mrScheduled = 0, overdueCount = 0;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const cellDate = new Date(currentYear, currentMonth, day);
+    const dow = cellDate.getDay();
+    const isTueThu = dow === 2 || dow === 4;
+    const isPast = cellDate < today;
+    const cell = document.createElement('div');
+
+    const dayState = monthData[day] || {};
+    if (dayState.ar) arCount++;
+    if (isTueThu) mrScheduled++;
+    if (dayState.mr) mrCount++;
+    const overdueAR = isPast && !dayState.ar;
+    const overdueMR = isPast && isTueThu && !dayState.mr;
+    if (overdueAR || overdueMR) overdueCount++;
+
+    cell.className = 'cell'
+      + (isTueThu ? ' tue-thu' : '')
+      + (isCurrentMonth && day === today.getDate() ? ' today' : '')
+      + ((overdueAR || overdueMR) ? ' overdue' : '');
+
+    const num = document.createElement('div');
+    num.className = 'date-num';
+    num.textContent = day;
+    cell.appendChild(num);
+
+    const tagsWrap = document.createElement('div');
+    tagsWrap.className = 'tags';
+    cell.appendChild(tagsWrap);
+
+    const noteLine = document.createElement('div');
+    noteLine.className = 'note-line';
+    noteLine.style.display = 'none';
+    cell.appendChild(noteLine);
+
+    const actionsWrap = document.createElement('div');
+    actionsWrap.className = 'actions';
+    cell.appendChild(actionsWrap);
+
+    const noteEditorWrap = document.createElement('div');
+    noteEditorWrap.style.display = 'none';
+    cell.appendChild(noteEditorWrap);
+
+    function refreshDay() {
+      tagsWrap.innerHTML = '';
+      actionsWrap.innerHTML = '';
+
+      if (dayState.ar) {
+        tagsWrap.appendChild(makeTag('ar', 'AR sent', () => {
+          delete dayState.ar;
+          persistAndRefresh(`Removed AR mark for ${MONTH_NAMES[currentMonth]} ${day}`);
+        }));
+      } else {
+        if (overdueAR) {
+          const flag = document.createElement('span');
+          flag.className = 'tag overdue';
+          flag.textContent = '⚠ AR overdue';
+          tagsWrap.appendChild(flag);
+        }
+        actionsWrap.appendChild(makeButton('ar', 'AR', () => {
+          dayState.ar = true;
+          persistAndRefresh(`Auto Renewal mail marked sent — ${MONTH_NAMES[currentMonth]} ${day}`);
+        }));
+      }
+
+      if (dayState.mr) {
+        tagsWrap.appendChild(makeTag('mr', 'MR sent', () => {
+          delete dayState.mr;
+          persistAndRefresh(`Removed MR mark for ${MONTH_NAMES[currentMonth]} ${day}`);
+        }));
+      } else {
+        if (overdueMR) {
+          const flag = document.createElement('span');
+          flag.className = 'tag overdue';
+          flag.textContent = '⚠ MR overdue';
+          tagsWrap.appendChild(flag);
+        }
+        actionsWrap.appendChild(makeButton('mr', 'MR', () => {
+          dayState.mr = true;
+          persistAndRefresh(`Manual Renewal mail marked sent — ${MONTH_NAMES[currentMonth]} ${day}`);
+        }));
+      }
+
+      if (dayState.note) {
+        noteLine.textContent = dayState.note;
+        noteLine.style.display = 'block';
+      } else {
+        noteLine.style.display = 'none';
+      }
+
+      const noteBtn = document.createElement('button');
+      noteBtn.className = 'note-btn';
+      noteBtn.type = 'button';
+      noteBtn.textContent = dayState.note ? 'Edit note' : '+ Note';
+      noteBtn.addEventListener('click', () => openNoteEditor());
+      actionsWrap.appendChild(noteBtn);
+    }
+
+    function openNoteEditor() {
+      noteEditorWrap.innerHTML = '';
+      noteEditorWrap.className = 'note-editor';
+      noteEditorWrap.style.display = 'flex';
+      tagsWrap.style.display = 'none';
+      noteLine.style.display = 'none';
+      actionsWrap.style.display = 'none';
+
+      const textarea = document.createElement('textarea');
+      textarea.rows = 2;
+      textarea.value = dayState.note || '';
+      textarea.placeholder = 'e.g. batch of 240 sent, delayed due to ISP issue…';
+      noteEditorWrap.appendChild(textarea);
+      textarea.focus();
+
+      const actionsRow = document.createElement('div');
+      actionsRow.className = 'note-actions';
+
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'save-note';
+      saveBtn.type = 'button';
+      saveBtn.textContent = 'Save';
+      saveBtn.addEventListener('click', () => {
+        const val = textarea.value.trim();
+        if (val) dayState.note = val; else delete dayState.note;
+        closeNoteEditor();
+        persistAndRefresh(val ? `Note saved for ${MONTH_NAMES[currentMonth]} ${day}` : `Note removed for ${MONTH_NAMES[currentMonth]} ${day}`);
+      });
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'cancel-note';
+      cancelBtn.type = 'button';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.addEventListener('click', () => closeNoteEditor());
+
+      actionsRow.appendChild(saveBtn);
+      actionsRow.appendChild(cancelBtn);
+      noteEditorWrap.appendChild(actionsRow);
+    }
+
+    function closeNoteEditor() {
+      noteEditorWrap.style.display = 'none';
+      noteEditorWrap.innerHTML = '';
+      tagsWrap.style.display = 'flex';
+      actionsWrap.style.display = 'flex';
+      if (dayState.note) noteLine.style.display = 'block';
+    }
+
+    async function persistAndRefresh(message) {
+      if (Object.keys(dayState).length === 0) {
+        delete monthData[day];
+      } else {
+        monthData[day] = dayState;
+      }
+      refreshDay();
+      const ok = await saveMonthData(currentYear, currentMonth, monthData);
+      statusLine.textContent = ok ? message : 'Could not save — please try again.';
+    }
+
+    noteLine.addEventListener('click', () => openNoteEditor());
+
+    refreshDay();
+    grid.appendChild(cell);
+  }
+
+  renderSummary({ arCount, mrCount, mrScheduled, overdueCount, daysInMonth });
+
+  statusLine.textContent = '';
+}
+
+function renderSummary({ arCount, mrCount, mrScheduled, overdueCount, daysInMonth }) {
+  const bar = document.getElementById('summary-bar');
+  bar.innerHTML = '';
+
+  const items = [
+    { label: 'AR sent', value: `${arCount}/${daysInMonth}` },
+    { label: 'MR sent', value: `${mrCount}/${mrScheduled}` },
+    { label: 'Overdue', value: `${overdueCount}`, overdue: overdueCount > 0 }
+  ];
+
+  items.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'summary-item' + (item.overdue ? ' overdue' : '');
+    el.innerHTML = `<strong>${item.value}</strong>${item.label}`;
+    bar.appendChild(el);
+  });
+}
+
+function makeTag(kind, label, onRemove) {
+  const btn = document.createElement('button');
+  btn.className = `tag ${kind}`;
+  btn.innerHTML = `${label} <span class="x">✕</span>`;
+  btn.addEventListener('click', onRemove);
+  return btn;
+}
+
+function makeButton(kind, label, onClick) {
+  const btn = document.createElement('button');
+  btn.className = `btn ${kind}`;
+  btn.textContent = label;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function downloadFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(value) {
+  const str = String(value ?? '');
+  if (/[",\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+document.getElementById('export-csv-btn').addEventListener('click', () => {
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const rows = [['Date', 'Day', 'AR Sent', 'MR Sent', 'Note']];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dow = new Date(currentYear, currentMonth, day).getDay();
+    const dayState = monthData[day] || {};
+    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    rows.push([
+      dateStr,
+      DAY_NAMES[dow],
+      dayState.ar ? 'Yes' : 'No',
+      dayState.mr ? 'Yes' : 'No',
+      dayState.note || ''
+    ]);
+  }
+
+  const csv = rows.map(row => row.map(csvEscape).join(',')).join('\n');
+  const filename = `renewal-tracker_${currentYear}-${String(currentMonth + 1).padStart(2, '0')}.csv`;
+  downloadFile(filename, csv, 'text/csv');
+  statusLine.textContent = `Exported ${MONTH_NAMES[currentMonth]} ${currentYear} as CSV.`;
+});
+
+document.getElementById('backup-btn').addEventListener('click', () => {
+  const backup = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('renewals:')) {
+      backup[key] = localStorage.getItem(key);
+    }
+  }
+  const filename = `renewal-tracker-backup_${new Date().toISOString().slice(0, 10)}.json`;
+  downloadFile(filename, JSON.stringify(backup, null, 2), 'application/json');
+  statusLine.textContent = 'Backup downloaded.';
+});
+
+const restoreBtn = document.getElementById('restore-btn');
+const restoreInput = document.getElementById('restore-input');
+
+restoreBtn.addEventListener('click', () => restoreInput.click());
+
+restoreInput.addEventListener('change', async () => {
+  const file = restoreInput.files[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const keys = Object.keys(data).filter(k => k.startsWith('renewals:'));
+
+    if (keys.length === 0) {
+      statusLine.textContent = 'That file has no renewal tracker data to restore.';
+      return;
+    }
+
+    const confirmed = window.confirm(`Restore ${keys.length} month(s) of data from this backup? Matching months already saved will be overwritten.`);
+    if (!confirmed) { restoreInput.value = ''; return; }
+
+    keys.forEach(key => {
+      try {
+        JSON.parse(data[key]);
+        localStorage.setItem(key, data[key]);
+      } catch (e) {
+        // Skip malformed entries.
+      }
+    });
+
+    await renderCalendar();
+    statusLine.textContent = `Restored ${keys.length} month(s) from backup.`;
+  } catch (err) {
+    statusLine.textContent = 'Could not read that backup file.';
+  } finally {
+    restoreInput.value = '';
+  }
+});
+
+const clearMonthBtn = document.getElementById('clear-month-btn');
+
+clearMonthBtn.addEventListener('click', async () => {
+  const monthLabel = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
+  const confirmed = window.confirm(`Clear all AR/MR records for ${monthLabel}? This can't be undone.`);
+  if (!confirmed) return;
+
+  clearMonthBtn.disabled = true;
+  statusLine.textContent = `Clearing ${monthLabel}…`;
+
+  try {
+    localStorage.removeItem(monthKey(currentYear, currentMonth));
+  } catch (err) {
+    // Key may not exist yet — that's fine, nothing to clear.
+  }
+
+  await renderCalendar();
+  statusLine.textContent = `Cleared all records for ${monthLabel}.`;
+  clearMonthBtn.disabled = false;
+});
+
+monthSelect.addEventListener('change', () => {
+  currentMonth = parseInt(monthSelect.value, 10);
+  renderCalendar();
+});
+
+yearSelect.addEventListener('change', () => {
+  currentYear = parseInt(yearSelect.value, 10);
+  renderCalendar();
+});
+
+renderCalendar();
+</script>
+</body>
+</html>
