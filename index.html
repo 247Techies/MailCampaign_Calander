@@ -145,11 +145,90 @@
 
   .tool-btn:hover { color: var(--mr); border-color: var(--mr); }
 
-  .summary-bar {
+  .summary-main {
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
     align-items: baseline;
+  }
+
+  .summary-extras {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .summary-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    padding: 4px 10px;
+    border: 1px solid var(--line-soft);
+    border-radius: 20px;
+    background: var(--paper);
+  }
+
+  .summary-chip strong { color: var(--ink); font-weight: 600; }
+  .summary-chip.zero { opacity: 0.6; }
+
+  .menu-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .tag.extra {
+    background: color-mix(in srgb, var(--c) 14%, var(--paper-raised));
+    color: var(--c);
+  }
+
+  .add-task-btn { border-style: dashed; }
+
+  .cell.menu-open .actions { opacity: 1; transform: none; }
+
+  .task-menu {
+    position: absolute;
+    left: 8px;
+    top: calc(100% - 4px);
+    z-index: 30;
+    min-width: 215px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 8px 24px var(--shadow), 0 2px 6px var(--shadow);
+  }
+
+  .task-menu.align-right { left: auto; right: 8px; }
+
+  .task-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    text-align: left;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    padding: 8px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  .task-menu-item:hover { background: var(--paper); }
+
+  .summary-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     padding: 14px 18px;
     background: var(--paper-raised);
     border: 1px solid var(--line);
@@ -282,7 +361,7 @@
 
   .cell {
     background: var(--paper-raised);
-    min-height: 118px;
+    min-height: 132px;
     padding: 10px 10px 8px;
     position: relative;
     display: flex;
@@ -390,7 +469,7 @@
   <header>
     <div class="title-block">
       <h1>Renewal Mail Tracker</h1>
-      <p>Mark each day's Auto Renewal and Manual Renewal mail as it goes out. Tuesdays and Thursdays are tinted as your Manual Renewal send days.</p>
+      <p>Tick off each day's campaigns and follow-ups as they go out. AR is expected daily and MR on the tinted Tuesdays and Thursdays; other tasks live under + Task.</p>
     </div>
     <div class="month-picker">
       <select id="month-select" aria-label="Month"></select>
@@ -426,6 +505,22 @@
 
 <script>
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+// Core tasks: quick buttons on every date (AR daily, MR on Tue/Thu) — these drive the overdue flags.
+const CORE_TASKS = [
+  { key: 'ar', label: 'Auto Renewal mail', tag: 'AR sent', btn: 'AR', csv: 'AR Sent' },
+  { key: 'mr', label: 'Manual Renewal mail', tag: 'MR sent', btn: 'MR', csv: 'MR Sent' }
+];
+
+// Extra tasks: ad-hoc, picked from the "+ Task" menu. Add or rename tasks here.
+const EXTRA_TASKS = [
+  { key: 'weekend',   label: 'Weekend Email Campaign',   tag: 'Weekend Campaign', color: '#7A5BA6' },
+  { key: 'techie',    label: 'Techie Follow-up Email',   tag: 'Techie Follow-up', color: '#3C6EB4' },
+  { key: 'callback',  label: 'Call Back Pending',        tag: 'Call Back',        color: '#C0577A' },
+  { key: 'custom',    label: 'Custom Email Campaign',    tag: 'Custom Campaign',  color: '#8C6A4A' },
+  { key: 'returning', label: 'Return Customer Campaign', tag: 'Return Customer',  color: '#5F6B7A' },
+  { key: 'renew',     label: 'Renew Customer Campaign',  tag: 'Renew Customer',   color: '#8A8F2A' }
+];
 const monthSelect = document.getElementById('month-select');
 const yearSelect = document.getElementById('year-select');
 const grid = document.getElementById('grid');
@@ -533,48 +628,87 @@ async function renderCalendar() {
     noteEditorWrap.style.display = 'none';
     cell.appendChild(noteEditorWrap);
 
+    const menuWrap = document.createElement('div');
+    menuWrap.className = 'task-menu' + (((firstDay + day - 1) % 7) >= 4 ? ' align-right' : '');
+    menuWrap.style.display = 'none';
+    cell.appendChild(menuWrap);
+
+    function closeMenu() {
+      menuWrap.style.display = 'none';
+      cell.classList.remove('menu-open');
+    }
+
+    function openMenu() {
+      closeAllMenus();
+      menuWrap.innerHTML = '';
+      EXTRA_TASKS.filter(t => !dayState[t.key]).forEach(task => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'task-menu-item';
+        item.innerHTML = `<span class="menu-dot" style="background:${task.color}"></span>${task.label}`;
+        item.addEventListener('click', () => {
+          dayState[task.key] = true;
+          persistAndRefresh(`${task.label} marked done — ${MONTH_NAMES[currentMonth]} ${day}`);
+        });
+        menuWrap.appendChild(item);
+      });
+      menuWrap.style.display = 'block';
+      cell.classList.add('menu-open');
+    }
+
+    cell.addEventListener('mouseleave', closeMenu);
+
     function refreshDay() {
       tagsWrap.innerHTML = '';
       actionsWrap.innerHTML = '';
+      closeMenu();
 
       const overdueAR = isPast && !dayState.ar;
       const overdueMR = isPast && isTueThu && !dayState.mr;
       cell.classList.toggle('overdue', overdueAR || overdueMR);
 
-      if (dayState.ar) {
-        tagsWrap.appendChild(makeTag('ar', 'AR sent', () => {
-          delete dayState.ar;
-          persistAndRefresh(`Removed AR mark for ${MONTH_NAMES[currentMonth]} ${day}`);
-        }));
-      } else {
-        if (overdueAR) {
-          const flag = document.createElement('span');
-          flag.className = 'tag overdue';
-          flag.textContent = '⚠ AR overdue';
-          tagsWrap.appendChild(flag);
+      // Core tasks (AR / MR): quick buttons, with overdue flags
+      CORE_TASKS.forEach(task => {
+        const overdue = task.key === 'ar' ? overdueAR : overdueMR;
+        if (dayState[task.key]) {
+          tagsWrap.appendChild(makeTag(task.key, task.tag, () => {
+            delete dayState[task.key];
+            persistAndRefresh(`Removed ${task.btn} mark for ${MONTH_NAMES[currentMonth]} ${day}`);
+          }, null, task.label));
+        } else {
+          if (overdue) {
+            const flag = document.createElement('span');
+            flag.className = 'tag overdue';
+            flag.textContent = `⚠ ${task.btn} overdue`;
+            tagsWrap.appendChild(flag);
+          }
+          actionsWrap.appendChild(makeButton(task.key, task.btn, () => {
+            dayState[task.key] = true;
+            persistAndRefresh(`${task.label} marked sent — ${MONTH_NAMES[currentMonth]} ${day}`);
+          }));
         }
-        actionsWrap.appendChild(makeButton('ar', 'AR', () => {
-          dayState.ar = true;
-          persistAndRefresh(`Auto Renewal mail marked sent — ${MONTH_NAMES[currentMonth]} ${day}`);
-        }));
-      }
+      });
 
-      if (dayState.mr) {
-        tagsWrap.appendChild(makeTag('mr', 'MR sent', () => {
-          delete dayState.mr;
-          persistAndRefresh(`Removed MR mark for ${MONTH_NAMES[currentMonth]} ${day}`);
-        }));
-      } else {
-        if (overdueMR) {
-          const flag = document.createElement('span');
-          flag.className = 'tag overdue';
-          flag.textContent = '⚠ MR overdue';
-          tagsWrap.appendChild(flag);
+      // Extra tasks that are done show as coloured tags
+      EXTRA_TASKS.forEach(task => {
+        if (dayState[task.key]) {
+          tagsWrap.appendChild(makeTag('extra', task.tag, () => {
+            delete dayState[task.key];
+            persistAndRefresh(`Removed ${task.label} for ${MONTH_NAMES[currentMonth]} ${day}`);
+          }, task.color, task.label));
         }
-        actionsWrap.appendChild(makeButton('mr', 'MR', () => {
-          dayState.mr = true;
-          persistAndRefresh(`Manual Renewal mail marked sent — ${MONTH_NAMES[currentMonth]} ${day}`);
-        }));
+      });
+
+      // "+ Task" menu button (only while some extra tasks are still unmarked)
+      if (EXTRA_TASKS.some(t => !dayState[t.key])) {
+        const addBtn = document.createElement('button');
+        addBtn.className = 'note-btn add-task-btn';
+        addBtn.type = 'button';
+        addBtn.textContent = '+ Task';
+        addBtn.addEventListener('click', () => {
+          if (menuWrap.style.display === 'block') closeMenu(); else openMenu();
+        });
+        actionsWrap.appendChild(addBtn);
       }
 
       if (dayState.note) {
@@ -660,6 +794,8 @@ async function renderCalendar() {
 
   function updateSummary() {
     let arCount = 0, mrCount = 0, mrScheduled = 0, overdueCount = 0;
+    const extraCounts = {};
+    EXTRA_TASKS.forEach(t => { extraCounts[t.key] = 0; });
 
     for (let day = 1; day <= daysInMonth; day++) {
       const cellDate = new Date(currentYear, currentMonth, day);
@@ -672,9 +808,10 @@ async function renderCalendar() {
       if (isTueThu) mrScheduled++;
       if (dayState.mr) mrCount++;
       if ((isPast && !dayState.ar) || (isPast && isTueThu && !dayState.mr)) overdueCount++;
+      EXTRA_TASKS.forEach(t => { if (dayState[t.key]) extraCounts[t.key]++; });
     }
 
-    renderSummary({ arCount, mrCount, mrScheduled, overdueCount, daysInMonth });
+    renderSummary({ arCount, mrCount, mrScheduled, overdueCount, daysInMonth, extraCounts });
   }
 
   updateSummary();
@@ -682,9 +819,12 @@ async function renderCalendar() {
   statusLine.textContent = '';
 }
 
-function renderSummary({ arCount, mrCount, mrScheduled, overdueCount, daysInMonth }) {
+function renderSummary({ arCount, mrCount, mrScheduled, overdueCount, daysInMonth, extraCounts }) {
   const bar = document.getElementById('summary-bar');
   bar.innerHTML = '';
+
+  const main = document.createElement('div');
+  main.className = 'summary-main';
 
   const items = [
     { label: 'AR sent', value: `${arCount}/${daysInMonth}` },
@@ -696,17 +836,44 @@ function renderSummary({ arCount, mrCount, mrScheduled, overdueCount, daysInMont
     const el = document.createElement('div');
     el.className = 'summary-item' + (item.overdue ? ' overdue' : '');
     el.innerHTML = `<strong>${item.value}</strong>${item.label}`;
-    bar.appendChild(el);
+    main.appendChild(el);
   });
+
+  const extras = document.createElement('div');
+  extras.className = 'summary-extras';
+
+  EXTRA_TASKS.forEach(task => {
+    const count = extraCounts[task.key] || 0;
+    const chip = document.createElement('div');
+    chip.className = 'summary-chip' + (count === 0 ? ' zero' : '');
+    chip.title = task.label;
+    chip.innerHTML = `<span class="menu-dot" style="background:${task.color}"></span>${task.tag}<strong>${count}</strong>`;
+    extras.appendChild(chip);
+  });
+
+  bar.appendChild(main);
+  bar.appendChild(extras);
 }
 
-function makeTag(kind, label, onRemove) {
+function makeTag(kind, label, onRemove, color, title) {
   const btn = document.createElement('button');
   btn.className = `tag ${kind}`;
+  btn.type = 'button';
+  if (color) btn.style.setProperty('--c', color);
+  if (title) btn.title = `${title} — click to remove`;
   btn.innerHTML = `${label} <span class="x">✕</span>`;
   btn.addEventListener('click', onRemove);
   return btn;
 }
+
+function closeAllMenus() {
+  document.querySelectorAll('.task-menu').forEach(m => { m.style.display = 'none'; });
+  document.querySelectorAll('.cell.menu-open').forEach(c => c.classList.remove('menu-open'));
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.task-menu') && !e.target.closest('.add-task-btn')) closeAllMenus();
+});
 
 function makeButton(kind, label, onClick) {
   const btn = document.createElement('button');
@@ -740,7 +907,7 @@ const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","
 
 document.getElementById('export-csv-btn').addEventListener('click', () => {
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const rows = [['Date', 'Day', 'AR Sent', 'MR Sent', 'Note']];
+  const rows = [['Date', 'Day', ...CORE_TASKS.map(t => t.csv), ...EXTRA_TASKS.map(t => t.label), 'Note']];
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dow = new Date(currentYear, currentMonth, day).getDay();
@@ -749,8 +916,8 @@ document.getElementById('export-csv-btn').addEventListener('click', () => {
     rows.push([
       dateStr,
       DAY_NAMES[dow],
-      dayState.ar ? 'Yes' : 'No',
-      dayState.mr ? 'Yes' : 'No',
+      ...CORE_TASKS.map(t => dayState[t.key] ? 'Yes' : 'No'),
+      ...EXTRA_TASKS.map(t => dayState[t.key] ? 'Yes' : 'No'),
       dayState.note || ''
     ]);
   }
